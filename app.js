@@ -215,7 +215,7 @@
       delete rotations[service.trip_id];
       saveRotations();
     }
-    const candidates = findCandidates(service, MIN_TURNAROUND_DEFAULT);
+    const candidates = findCandidates(service);
     return { service: candidates[0] || null, confirmed: false, candidates: candidates };
   }
   function getChain(startService, maxLength) {
