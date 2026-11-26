@@ -1,104 +1,68 @@
 # Cercanías Moovit · Bilbao
 
-Web independiente para consultar números de circulación de Cercanías Bilbao, enlazar los siguientes servicios del mismo material y simular la propagación de retrasos.
+Buscador de circulaciones oficiales de Renfe Cercanías para C1 (Santurtzi), C2 (Muskiz) y C3 (Orduña/Llodio), con calendario por fecha, consulta de paradas y datos GTFS-RT.
 
 ## Funciones
 
+- Selector de fecha que aplica el calendario GTFS del día (laborable, fin de semana o servicio especial).
 - Búsqueda por número de circulación.
-- Búsqueda por estación, hora de salida y línea.
-- Cadena de siguientes servicios mediante el campo \`nextServiceId\`.
-- Simulación de retrasos con margen mínimo de inversión y recuperación configurable.
-- Importación y exportación de horarios en JSON.
-- Persistencia local de los datos importados en el navegador.
+- Búsqueda de la siguiente salida desde cualquiera de las estaciones y a partir de una hora.
+- Itinerario y horario de paso de cada circulación.
+- Consulta de posiciones y actualizaciones de viaje de Renfe en tiempo real.
+- Simulador de retrasos con tiempo mínimo de inversión y recuperación configurable.
+- Cálculo de una posible continuidad del tren en la terminal y confirmación manual de enlaces.
 
-## Datos incluidos
+## Datos horarios
 
-El repositorio comienza con un ejemplo de dos servicios C1 enlazados:
+El workflow descarga el GTFS estático de Renfe Cercanías disponible a través del feed NAP 1130 replicado por Transitland y extrae las seis rutas de Bilbao (C1, C2 y C3 en ambos sentidos). Genera un fichero por fecha en data/days/, junto con data/calendar.json y data/stations.json.
 
-- 26137: Bilbao-Abando 13:25 → Santurtzi 13:49.
-- 26140: Santurtzi 14:03 → Bilbao-Abando 14:27.
+El ZIP aportado para el desarrollo (actualización 24/11/2026) contiene 7.971 circulaciones para el periodo 24/11/2026–23/12/2026:
+- C1: 2.580 circulaciones.
+- C2: 2.481 circulaciones.
+- C3: 2.910 circulaciones.
 
-Este ejemplo procede de la información facilitada para el proyecto. Está marcado como demostración y **no es un horario completo ni una fuente oficial de Renfe**. No se incluyen datos inventados para C2 o C3.
+Los datos servidos por la web dependen de la versión GTFS que descargue cada despliegue. El selector usa las fechas reales presentes en calendar.txt, no una suposición basada únicamente en el día de la semana.
 
-## Publicar con GitHub Pages
+## Tiempo real
 
-1. Abre Settings del repositorio.
-2. Entra en Pages.
-3. En Build and deployment, selecciona **GitHub Actions** como Source.
-4. El workflow de \`.github/workflows/deploy.yml\` publicará la web al hacer push en \`main\`.
+Renfe publica GTFS-RT y una representación JSON equivalente de:
+- vehicle_positions.json: posición GPS, estado, estación y etiqueta/andén del vehículo.
+- trip_updates.json: retrasos, cancelaciones y cambios de horario por viaje.
 
-La web se servirá en:
+Los feeds se consultan desde el navegador cada 20 segundos. La asociación con el horario se realiza mediante trip_id. Si el navegador no puede acceder a los feeds, los horarios estáticos siguen disponibles.
 
-\`https://enekituss.github.io/cercanias-moovit/\`
+## Rotación y propagación del retraso
 
-## Formato de horarios JSON
+El campo GTFS block_id de la fuente utilizada no agrupa los servicios de una misma composición (aparece un valor diferente para cada viaje). Por eso el sistema no presenta una relación física como si fuera oficial. Propone el siguiente servicio que sale desde la terminal de llegada, en la misma línea y tras el tiempo mínimo de inversión configurado. El usuario puede confirmar o cambiar el enlace; esa confirmación se guarda localmente en el navegador.
 
-Importa un archivo JSON con este esquema:
+La simulación:
+1. Parte del retraso de llegada introducido o copiado desde GTFS-RT.
+2. Calcula si queda margen para invertir la marcha antes de la salida siguiente.
+3. Traslada la demora a las circulaciones enlazadas.
+4. Aplica la recuperación en marcha configurada.
 
-\`\`\`json
-{
-  "meta": {
-    "title": "Horarios Cercanías Bilbao",
-    "demo": false,
-    "source": "Fuente y fecha de actualización"
-  },
-  "stations": ["Bilbao-Abando", "Santurtzi"],
-  "services": [
-    {
-      "id": "26137",
-      "line": "C1",
-      "origin": "Bilbao-Abando",
-      "destination": "Santurtzi",
-      "departure": "13:25",
-      "arrival": "13:49",
-      "trainset": "unidad-01",
-      "nextServiceId": "26140",
-      "turnaroundMin": 3,
-      "source": "Fuente del horario"
-    },
-    {
-      "id": "26140",
-      "line": "C1",
-      "origin": "Santurtzi",
-      "destination": "Bilbao-Abando",
-      "departure": "14:03",
-      "arrival": "14:27",
-      "trainset": "unidad-01",
-      "nextServiceId": "",
-      "turnaroundMin": 3,
-      "source": "Fuente del horario"
-    }
-  ]
-}
-\`\`\`
+Es una estimación, no una predicción operativa de Renfe: no contempla cruces, regulación, incidencias, cambios de composición ni decisiones del centro de control.
 
-### Campos principales
+## Actualización automática
 
-| Campo | Descripción |
-|---|---|
-| \`id\` | Número de circulación |
-| \`line\` | C1, C2 o C3 |
-| \`origin\` / \`destination\` | Estaciones de origen y destino |
-| \`departure\` / \`arrival\` | Horas programadas en formato HH:MM |
-| \`trainset\` | Identificador común del material, si se conoce |
-| \`nextServiceId\` | Número de la siguiente circulación del mismo tren |
-| \`turnaroundMin\` | Tiempo mínimo de inversión en minutos |
-| \`source\` | Procedencia del dato |
+.github/workflows/deploy.yml descarga y reconstruye los datos:
+- Al hacer push a main.
+- Semanalmente.
+- Manualmente desde GitHub Actions.
 
-La relación entre servicios debe confirmarse con información de explotación o seguimiento fiable. No se debe enlazar por proximidad horaria solamente.
+El workflow intenta guardar los datos horarios generados en el repositorio y desplegar GitHub Pages.
 
-## Cómo se calcula el retraso
+## Publicación
 
-La simulación parte del retraso que se introduce a la llegada de la circulación seleccionada. Para cada servicio posterior:
+En Settings → Pages, selecciona **GitHub Actions** como Source. La web se publica en:
 
-1. Calcula la hora real estimada de llegada del servicio anterior.
-2. Añade el tiempo mínimo de inversión configurado.
-3. Compara ese resultado con la salida programada del siguiente servicio.
-4. Si no queda margen suficiente, traslada la demora a la salida y llegada siguientes.
-5. Aplica, si se configura, los minutos de recuperación en marcha.
+https://enekituss.github.io/cercanias-moovit/
 
-Es una estimación simplificada. No contempla cruces, regulación, incidencias, cambios de material ni decisiones operativas de Renfe.
+## Fuentes y atribución
 
-## Tecnologías
+- Renfe Data — Ubicación de vehículos: https://data.renfe.com/dataset/ubicacion-vehiculos
+- Renfe Data — Horarios de viaje: https://data.renfe.com/es/dataset/horarios-viaje-cercanias
+- NAP — Conjunto de datos Cercanías Renfe: https://nap.transportes.gob.es/ConjuntoDato/Detail/929
+- Feed estático replicado: https://gtfs-source-feeds.transit.land/es-nap-1130.zip
 
-HTML, CSS y JavaScript sin frameworks ni servidor. Los datos importados se guardan en el almacenamiento local del navegador.
+Atribución: **Powered by MITRAMS** (Ministerio de Transportes y Movilidad Sostenible). Proyecto independiente, no afiliado a Renfe ni a Moovit.
