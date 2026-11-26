@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101923">
+  <meta name="description" content="Buscador de circulaciones y simulador de retrasos para Cercanías de Bilbao.">
+  <title>Cercanías Moovit · Bilbao</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Cercanías Moovit, inicio">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect x="4" y="3" width="24" height="22" rx="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M10 10h12M10 15h12M11 25l-3 4m13-4 3 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="11" cy="20" r="1.5" fill="currentColor"/><circle cx="21" cy="20" r="1.5" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="brand-copy"><strong>Cercanías <span>Moovit</span></strong><small>BILBAO · CONTROL DE CIRCULACIONES</small></span>
+      </a>
+      <div class="header-actions">
+        <span class="connection-pill"><i></i> MODO LOCAL</span>
+        <button class="button button-quiet" id="import-button" type="button">Importar horarios</button>
+        <button class="button button-primary" id="export-button" type="button">Exportar datos <span aria-hidden="true">↓</span></button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span> HERRAMIENTA DE SEGUIMIENTO · BILBAO</div>
+          <h1>Un tren.<br><span>Todos sus servicios.</span></h1>
+          <p>Localiza una circulación, descubre qué servicio realiza después y calcula cómo se propaga un retraso a lo largo del día.</p>
+        </div>
+        <div class="hero-side">
+          <div class="route-orbit" aria-hidden="true">
+            <span class="orbit-ring ring-one"></span><span class="orbit-ring ring-two"></span>
+            <span class="orbit-dot dot-a"></span><span class="orbit-dot dot-b"></span><span class="orbit-dot dot-c"></span>
+            <span class="orbit-center"><svg viewBox="0 0 32 32" fill="none"><path d="M5 22 12 10l7 12 8-14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="22" r="2.5" fill="currentColor"/><circle cx="27" cy="8" r="2.5" fill="currentColor"/></svg></span>
+          </div>
+          <div><strong>Seguimiento de material</strong><small>C1 · C2 · C3 / Cercanías Bilbao</small></div>
+        </div>
+      </section>
+
+      <section class="search-panel panel">
+        <div class="section-heading">
+          <div><span class="number-tag">01</span><div><h2>Buscar circulación</h2><p>Encuentra un tren por su número o por su horario.</p></div></div>
+          <span class="data-badge" id="data-badge">CARGANDO DATOS</span>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Método de búsqueda">
+          <button class="tab active" id="tab-number" role="tab" aria-selected="true" type="button">Por número de circulación</button>
+          <button class="tab" id="tab-station" role="tab" aria-selected="false" type="button">Por estación y hora</button>
+        </div>
+        <form id="number-form" class="search-form">
+          <label class="field grow"><span>NÚMERO DE CIRCULACIÓN</span><input id="circulation-input" type="search" placeholder="Ej. 26137" value="26137" autocomplete="off"></label>
+          <button class="button button-primary search-submit" type="submit">Buscar circulación <span aria-hidden="true">→</span></button>
+        </form>
+        <form id="station-form" class="search-form hidden">
+          <label class="field"><span>ESTACIÓN DE SALIDA</span><select id="station-input"></select></label>
+          <label class="field"><span>HORA DESDE</span><input id="time-input" type="time" value="13:25"></label>
+          <label class="field"><span>LÍNEA</span><select id="line-input"><option value="all">Todas</option><option value="C1">C1 · Santurtzi</option><option value="C2">C2 · Muskiz</option><option value="C3">C3 · Orduña / Llodio</option></select></label>
+          <button class="button button-primary search-submit" type="submit">Buscar trenes <span aria-hidden="true">→</span></button>
+        </form>
+        <div class="search-foot"><span class="tiny-info">ⓘ</span><span>La búsqueda utiliza los horarios cargados en esta web. No consulta la posición GPS ni los retrasos reales de Renfe.</span></div>
+      </section>
+
+      <section class="results-grid">
+        <div class="main-column">
+          <section class="panel result-panel hidden" id="result-panel" aria-live="polite"></section>
+          <section class="panel empty-panel" id="empty-panel">
+            <div class="empty-icon">⌕</div><h2>Esperando una búsqueda</h2><p>Introduce una circulación o selecciona una estación para encontrar el servicio programado.</p>
+          </section>
+        </div>
+        <aside class="side-column">
+          <section class="panel info-panel">
+            <div class="panel-kicker">CÓMO FUNCIONA</div>
+            <div class="step"><span>1</span><div><strong>Localiza el tren</strong><p>Busca su número o la siguiente salida desde una estación.</p></div></div>
+            <div class="step"><span>2</span><div><strong>Sigue la rotación</strong><p>Consulta qué circulación enlaza a continuación con el mismo material.</p></div></div>
+            <div class="step"><span>3</span><div><strong>Simula el retraso</strong><p>Introduce los minutos de demora y calcula su efecto en los servicios posteriores.</p></div></div>
+          </section>
+          <section class="panel data-panel">
+            <div class="panel-kicker">DATOS DEL PROYECTO</div>
+            <div class="data-stat"><strong id="service-count">—</strong><span>circulaciones cargadas</span></div>
+            <div class="line-chips"><span class="line-chip c1">C1</span><span class="line-chip c2">C2</span><span class="line-chip c3">C3</span></div>
+            <p class="muted-note">Los datos de demostración se pueden sustituir por un horario completo mediante el botón «Importar horarios».</p>
+            <button class="text-button" id="reset-demo" type="button">Restablecer datos de demostración ↺</button>
+          </section>
+        </aside>
+      </section>
+
+      <footer class="footer"><span>CERCANÍAS MOOVIT</span><span>Proyecto independiente · No afiliado a Renfe ni a Moovit</span><span>Horarios programados ≠ datos en tiempo real</span></footer>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
