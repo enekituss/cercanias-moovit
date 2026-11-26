@@ -297,6 +297,7 @@
         return '<div class="stop-row ' + (String(stop[0]) === String(focusStopId) ? "focused" : "") + '"><span class="stop-index">' + (index + 1) + '</span><span class="stop-name">' + escapeHtml(name) + '</span><strong>' + escapeHtml(times) + '</strong></div>';
       }).join("") + "</div></details>" +
       '<hr class="section-divider"><div class="subsection-heading"><h3>Siguiente servicio posible</h3><span>' + (chain.length - 1) + " enlace" + (chain.length === 2 ? "" : "s") + " calculado" + (chain.length === 2 ? "" : "s") + "</span></div>" +
+      nextControl +
       '<div class="chain-list">' + chain.map(function (item, index) {
         const manual = rotations[chain[index - 1] && chain[index - 1].trip_id] === item.trip_id;
         return '<div class="chain-item ' + (index === 0 ? "current" : "") + '"><span class="chain-index">' + String(index + 1).padStart(2, "0") + '</span><div class="chain-copy"><strong>' + escapeHtml(item.circulation) + ' <span class="line-chip ' + lineClass(item.line) + '">' + escapeHtml(item.line) + "</span>" + (index === 1 ? '<span class="chain-tag ' + (manual ? "confirmed" : "estimated") + '">' + (manual ? "CONFIRMADO" : "POSIBLE") + "</span>" : "") + '</strong><small>' + escapeHtml(stationName(item.origin_id)) + " → " + escapeHtml(stationName(item.destination_id)) + '</small></div><span class="chain-time">' + escapeHtml(shortTime(item.departure)) + " – " + escapeHtml(shortTime(item.arrival)) + "</span></div>";
