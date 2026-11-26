@@ -8,7 +8,7 @@
     updates: "https://gtfsrt.renfe.com/trip_updates.json"
   };
   const ROTATION_KEY = "cercanias-moovit-rotations-v2";
-  const MIN_TURNAROUND_DEFAULT = 3;
+  const MIN_CANDIDATE_GAP_MINUTES = 3;
 
   const $ = function (id) { return document.getElementById(id); };
   let calendarData = null;
@@ -193,7 +193,7 @@
   }
   function findCandidates(service, minTurnaround) {
     if (!dayData || !service) return [];
-    const earliest = parseMinutes(service.arrival) + (minTurnaround == null ? MIN_TURNAROUND_DEFAULT : minTurnaround);
+    const earliest = parseMinutes(service.arrival) + MIN_CANDIDATE_GAP_MINUTES;
     return dayData.services.filter(function (candidate) {
       return candidate.trip_id !== service.trip_id &&
         candidate.line === service.line &&
@@ -208,7 +208,7 @@
     const savedId = rotations[service.trip_id];
     if (savedId) {
       const saved = findServiceByTripId(savedId);
-      if (saved) return { service: saved, confirmed: true, candidates: findCandidates(service, MIN_TURNAROUND_DEFAULT) };
+      if (saved) return { service: saved, confirmed: true, candidates: findCandidates(service, MIN_CANDIDATE_GAP_MINUTES) };
       delete rotations[service.trip_id];
       saveRotations();
     }
@@ -303,8 +303,8 @@
         return '<div class="chain-item ' + (index === 0 ? "current" : "") + '"><span class="chain-index">' + String(index + 1).padStart(2, "0") + '</span><div class="chain-copy"><strong>' + escapeHtml(item.circulation) + ' <span class="line-chip ' + lineClass(item.line) + '">' + escapeHtml(item.line) + "</span>" + (index === 1 ? '<span class="chain-tag ' + (manual ? "confirmed" : "estimated") + '">' + (manual ? "CONFIRMADO" : "POSIBLE") + "</span>" : "") + '</strong><small>' + escapeHtml(stationName(item.origin_id)) + " → " + escapeHtml(stationName(item.destination_id)) + '</small></div><span class="chain-time">' + escapeHtml(shortTime(item.departure)) + " – " + escapeHtml(shortTime(item.arrival)) + "</span></div>";
       }).join("") + "</div>" +
       '<div class="rotation-footnote">La continuidad se propone por coincidencia de terminal, línea y tiempo mínimo de inversión. El GTFS no asigna la composición física a cada viaje. Confirma el enlace manualmente antes de considerarlo una rotación real; la confirmación se guarda en este navegador.</div>' +
-      '<section class="simulator"><div class="simulator-head"><div><div class="simulator-label">02 · SIMULADOR</div><h3>Propagación del retraso</h3><p>Introduce la demora de llegada de la circulación ' + escapeHtml(service.circulation) + '.</p></div></div>' +
-      '<div class="sim-controls"><div class="sim-field"><label for="delay-input">RETRASO DE LLEGADA (MIN)</label><input class="sim-input" id="delay-input" type="number" min="0" max="600" step="1" value="0"></div><div class="sim-field"><label for="turnaround-input">INVERSIÓN MÍNIMA (MIN)</label><input class="sim-input" id="turnaround-input" type="number" min="0" max="180" step="1" value="3"></div><div class="sim-field"><label for="recovery-input">RECUPERACIÓN EN MARCHA (MIN)</label><input class="sim-input" id="recovery-input" type="number" min="0" max="180" step="1" value="0"></div></div>' +
+      '<section class="simulator"><div class="simulator-head"><div><div class="simulator-label">02 · SIMULADOR</div><h3>Propagación del retraso</h3><p>Introduce la demora de llegada. La inversión se calcula automáticamente según el horario de cada enlace. Circulación ' + escapeHtml(service.circulation) + '.</p></div></div>' +
+      '<div class="sim-controls"><div class="sim-field"><label for="delay-input">RETRASO DE LLEGADA (MIN)</label><input class="sim-input" id="delay-input" type="number" min="0" max="600" step="1" value="0"></div><div class="sim-field"><label for="recovery-input">RECUPERACIÓN EN MARCHA (MIN)</label><input class="sim-input" id="recovery-input" type="number" min="0" max="180" step="1" value="0"></div></div>' +
       '<div class="sim-output" id="simulation-output"></div><p class="sim-explanation" id="simulation-explanation"></p><div class="sim-warning">Cálculo teórico: no incorpora cruces, regulación, incidencias, cambios de unidad ni decisiones operativas de Renfe.</div></section>' +
       '<p class="muted-note source-note">Horario programado: GTFS estático de Renfe Cercanías, publicado en el NAP. Identificador GTFS: ' + escapeHtml(service.trip_id) + ".</p>";
 
@@ -323,7 +323,7 @@
       renderResult(service, focusStopId);
       showToast("Se ha quitado la confirmación.");
     });
-    ["delay-input", "turnaround-input", "recovery-input"].forEach(function (id) {
+    ["delay-input", "recovery-input"].forEach(function (id) {
       $(id).addEventListener("input", renderSimulation);
     });
     renderLivePanel(service);
@@ -398,7 +398,6 @@
     if (!activeService || !$("simulation-output")) return;
     const chain = getChain(activeService, 10);
     const delay = clampNumber($("delay-input").value, 0, 600);
-    const turnaround = clampNumber($("turnaround-input").value, 0, 180);
     const recovery = clampNumber($("recovery-input").value, 0, 180);
     const rows = [];
     const firstArrival = parseMinutes(activeService.arrival);
@@ -420,10 +419,11 @@
       while (depPlan < previousScheduledArrival) depPlan += 1440;
       let arrPlan = parseMinutes(service.arrival);
       while (arrPlan < depPlan) arrPlan += 1440;
-      const depEstimate = Math.max(depPlan, previousEstimatedArrival + turnaround);
+      const scheduledTurnaround = Math.max(0, depPlan - previousScheduledArrival);
+      const depEstimate = Math.max(depPlan, previousEstimatedArrival);
       const inheritedDelay = Math.max(0, depEstimate - depPlan);
       const arrEstimate = arrPlan + Math.max(0, inheritedDelay - recovery);
-      rows.push({ service: service, depPlan: depPlan, depEstimate: depEstimate, arrPlan: arrPlan, arrEstimate: arrEstimate, actual: false });
+      rows.push({ service: service, depPlan: depPlan, depEstimate: depEstimate, arrPlan: arrPlan, arrEstimate: arrEstimate, scheduledTurnaround: scheduledTurnaround, actual: false });
       previousScheduledArrival = arrPlan;
       previousEstimatedArrival = arrEstimate;
     }
@@ -433,7 +433,7 @@
       rows.map(function (row, index) {
         const depCell = row.actual
           ? '<span class="time-pair"><span>' + clock(row.depPlan) + '</span><span class="planned">Llegada real introducida</span></span>'
-          : '<span class="time-pair"><span class="planned">' + clock(row.depPlan) + '</span><span class="estimated">' + clock(row.depEstimate) + "</span></span>";
+          : '<span class="time-pair"><span class="planned">' + clock(row.depPlan) + '</span><span class="estimated">' + clock(row.depEstimate) + '</span><span class="buffer-info">Inversión programada: ' + Math.round(row.scheduledTurnaround) + " min</span></span>";
         const arrDelay = row.arrEstimate - row.arrPlan;
         const arrCell = '<span class="time-pair"><span class="planned">' + clock(row.arrPlan) + '</span><span class="estimated">' + clock(row.arrEstimate) + "</span></span>";
         return "<tr><td>" + escapeHtml(row.service.circulation) + (index === 0 ? '<br><span class="actual-tag">DEMORA INTRODUCIDA</span>' : "") + "</td><td>" + depCell + "</td><td>" + arrCell + '<td class="delay-cell ' + (arrDelay > 0 ? "delayed" : "") + '">' + escapeHtml(delayLabel(arrDelay)) + "</td></tr>";
@@ -447,8 +447,8 @@
       const firstDepDelay = Math.max(0, next.depEstimate - next.depPlan);
       const finalDelay = Math.max(0, last.arrEstimate - last.arrPlan);
       $("simulation-explanation").textContent = firstDepDelay === 0
-        ? "El margen de inversión absorbe el retraso antes de la salida siguiente."
-        : "La siguiente salida acumularía " + Math.round(firstDepDelay) + " min. Al final de los " + (rows.length - 1) + " servicios enlazados, la demora estimada sería de " + Math.round(finalDelay) + " min.";
+        ? "La inversión programada de " + Math.round(next.scheduledTurnaround) + " min absorbe " + Math.round(Math.min(delay, next.scheduledTurnaround)) + " min de demora: la siguiente salida seguiría en hora."
+        : "La demora supera los " + Math.round(next.scheduledTurnaround) + " min de inversión programada: la siguiente salida acumularía " + Math.round(firstDepDelay) + " min. Al final de los " + (rows.length - 1) + " servicios enlazados, la demora estimada sería de " + Math.round(finalDelay) + " min.";
     }
   }
 
