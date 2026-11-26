@@ -40,6 +40,8 @@ jobs:
           git add data/calendar.json data/stations.json data/days
           if ! git diff --cached --quiet; then
             git commit -m "Update Bilbao GTFS schedules"
+            # Integrate any schedule or code commit that reached main during the build.
+            git pull --rebase origin main
             git push
           else
             echo "GTFS files have not changed."
