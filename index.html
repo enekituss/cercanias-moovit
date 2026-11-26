@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101923">
-  <meta name="description" content="Buscador de circulaciones y simulador de retrasos para Cercanías de Bilbao.">
+  <meta name="description" content="Consulta circulaciones oficiales, horarios y retrasos de Cercanías de Bilbao.">
   <title>Cercanías Moovit · Bilbao</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="./app.js" defer></script>
@@ -23,19 +23,17 @@
         <span class="brand-copy"><strong>Cercanías <span>Moovit</span></strong><small>BILBAO · CONTROL DE CIRCULACIONES</small></span>
       </a>
       <div class="header-actions">
-        <span class="connection-pill"><i></i> MODO LOCAL</span>
-        <button class="button button-quiet" id="import-button" type="button">Importar horarios</button>
-        <button class="button button-primary" id="export-button" type="button">Exportar datos <span aria-hidden="true">↓</span></button>
-        <input id="import-file" type="file" accept=".json,application/json" hidden>
+        <span class="connection-pill" id="live-status"><i></i> ESPERANDO DATOS RT</span>
+        <button class="button button-quiet" id="refresh-live" type="button">Actualizar tiempo real ↻</button>
       </div>
     </header>
 
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <div class="eyebrow"><span class="eyebrow-line"></span> HERRAMIENTA DE SEGUIMIENTO · BILBAO</div>
+          <div class="eyebrow"><span class="eyebrow-line"></span> RENFE CERCANÍAS · BILBAO</div>
           <h1>Un tren.<br><span>Todos sus servicios.</span></h1>
-          <p>Localiza una circulación, descubre qué servicio realiza después y calcula cómo se propaga un retraso a lo largo del día.</p>
+          <p>Busca una circulación oficial, consulta cada parada de su recorrido y comprueba la demora comunicada por Renfe. Después, estudia cómo podría propagarse a los siguientes servicios.</p>
         </div>
         <div class="hero-side">
           <div class="route-orbit" aria-hidden="true">
@@ -43,15 +41,22 @@
             <span class="orbit-dot dot-a"></span><span class="orbit-dot dot-b"></span><span class="orbit-dot dot-c"></span>
             <span class="orbit-center"><svg viewBox="0 0 32 32" fill="none"><path d="M5 22 12 10l7 12 8-14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="22" r="2.5" fill="currentColor"/><circle cx="27" cy="8" r="2.5" fill="currentColor"/></svg></span>
           </div>
-          <div><strong>Seguimiento de material</strong><small>C1 · C2 · C3 / Cercanías Bilbao</small></div>
+          <div><strong>C1 · C2 · C3</strong><small>Bilbao-Abando y ramales</small></div>
         </div>
       </section>
 
-      <section class="search-panel panel">
+      <section class="panel search-panel">
         <div class="section-heading">
-          <div><span class="number-tag">01</span><div><h2>Buscar circulación</h2><p>Encuentra un tren por su número o por su horario.</p></div></div>
-          <span class="data-badge" id="data-badge">CARGANDO DATOS</span>
+          <div><span class="number-tag">01</span><div><h2>Buscar circulación</h2><p>Elige primero el día de circulación y después cómo quieres buscar.</p></div></div>
+          <span class="data-badge" id="data-badge">CARGANDO HORARIOS</span>
         </div>
+
+        <div class="date-select-row">
+          <label class="field date-field"><span>DÍA DE CIRCULACIÓN</span><input id="service-date" type="date"></label>
+          <div class="date-description"><strong id="date-description">Leyendo calendario de Renfe…</strong><small id="date-range">Cargando vigencia del horario</small></div>
+          <button class="button button-quiet today-button" id="today-button" type="button">Hoy</button>
+        </div>
+
         <div class="tabs" role="tablist" aria-label="Método de búsqueda">
           <button class="tab active" id="tab-number" role="tab" aria-selected="true" type="button">Por número de circulación</button>
           <button class="tab" id="tab-station" role="tab" aria-selected="false" type="button">Por estación y hora</button>
@@ -61,39 +66,43 @@
           <button class="button button-primary search-submit" type="submit">Buscar circulación <span aria-hidden="true">→</span></button>
         </form>
         <form id="station-form" class="search-form hidden">
-          <label class="field"><span>ESTACIÓN DE SALIDA</span><select id="station-input"></select></label>
+          <label class="field"><span>ESTACIÓN</span><select id="station-input"></select></label>
           <label class="field"><span>HORA DESDE</span><input id="time-input" type="time" value="13:25"></label>
           <label class="field"><span>LÍNEA</span><select id="line-input"><option value="all">Todas</option><option value="C1">C1 · Santurtzi</option><option value="C2">C2 · Muskiz</option><option value="C3">C3 · Orduña / Llodio</option></select></label>
           <button class="button button-primary search-submit" type="submit">Buscar trenes <span aria-hidden="true">→</span></button>
         </form>
-        <div class="search-foot"><span class="tiny-info">ⓘ</span><span>La búsqueda utiliza los horarios cargados en esta web. No consulta la posición GPS ni los retrasos reales de Renfe.</span></div>
+        <div class="search-foot"><span class="tiny-info">ⓘ</span><span>Los horarios se filtran por la fecha seleccionada. El tiempo real solo se puede asociar al servicio del día actual.</span></div>
       </section>
 
       <section class="results-grid">
         <div class="main-column">
           <section class="panel result-panel hidden" id="result-panel" aria-live="polite"></section>
           <section class="panel empty-panel" id="empty-panel">
-            <div class="empty-icon">⌕</div><h2>Esperando una búsqueda</h2><p>Introduce una circulación o selecciona una estación para encontrar el servicio programado.</p>
+            <div class="empty-icon">⌕</div><h2>Preparando horarios oficiales</h2><p>En cuanto se cargue el calendario de Renfe podrás buscar por número de circulación o por cualquier estación de C1, C2 y C3.</p>
           </section>
         </div>
         <aside class="side-column">
           <section class="panel info-panel">
             <div class="panel-kicker">CÓMO FUNCIONA</div>
-            <div class="step"><span>1</span><div><strong>Localiza el tren</strong><p>Busca su número o la siguiente salida desde una estación.</p></div></div>
-            <div class="step"><span>2</span><div><strong>Sigue la rotación</strong><p>Consulta qué circulación enlaza a continuación con el mismo material.</p></div></div>
-            <div class="step"><span>3</span><div><strong>Simula el retraso</strong><p>Introduce los minutos de demora y calcula su efecto en los servicios posteriores.</p></div></div>
+            <div class="step"><span>1</span><div><strong>Selecciona la fecha</strong><p>El selector aplica el calendario diario incluido en el GTFS, también en festivos y fines de semana.</p></div></div>
+            <div class="step"><span>2</span><div><strong>Localiza la circulación</strong><p>Busca el número o la siguiente salida en cualquiera de las estaciones del recorrido.</p></div></div>
+            <div class="step"><span>3</span><div><strong>Analiza el retraso</strong><p>Contrasta la demora en tiempo real y simula su posible propagación por la rotación.</p></div></div>
           </section>
           <section class="panel data-panel">
-            <div class="panel-kicker">DATOS DEL PROYECTO</div>
-            <div class="data-stat"><strong id="service-count">—</strong><span>circulaciones cargadas</span></div>
-            <div class="line-chips"><span class="line-chip c1">C1</span><span class="line-chip c2">C2</span><span class="line-chip c3">C3</span></div>
-            <p class="muted-note">Los datos de demostración se pueden sustituir por un horario completo mediante el botón «Importar horarios».</p>
-            <button class="text-button" id="reset-demo" type="button">Restablecer datos de demostración ↺</button>
+            <div class="panel-kicker">HORARIO CARGADO</div>
+            <div class="data-stat"><strong id="service-count">—</strong><span>circulaciones del día</span></div>
+            <div class="line-counts">
+              <div><span class="line-chip c1">C1</span><strong id="count-c1">—</strong></div>
+              <div><span class="line-chip c2">C2</span><strong id="count-c2">—</strong></div>
+              <div><span class="line-chip c3">C3</span><strong id="count-c3">—</strong></div>
+            </div>
+            <p class="muted-note" id="source-range">Esperando calendario GTFS…</p>
+            <p class="muted-note">Fuente: Renfe Cercanías / NAP. Horarios programados; consulta de tiempos reales mediante GTFS-RT.</p>
           </section>
         </aside>
       </section>
 
-      <footer class="footer"><span>CERCANÍAS MOOVIT</span><span>Proyecto independiente · No afiliado a Renfe ni a Moovit</span><span>Horarios programados ≠ datos en tiempo real</span></footer>
+      <footer class="footer"><span>CERCANÍAS MOOVIT</span><span>Datos: Renfe Cercanías · NAP</span><span><a href="https://www.transportes.gob.es/" target="_blank" rel="noopener">Powered by MITRAMS</a> · Proyecto independiente</span></footer>
     </main>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
