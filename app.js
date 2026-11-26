@@ -20,6 +20,7 @@
   let liveVehicles = new Map();
   let liveUpdates = new Map();
   let liveConnected = false;
+  let liveFeedsAvailable = 0;
   let refreshBusy = false;
   let toastTimer = null;
   let dayCache = new Map();
@@ -142,6 +143,8 @@
       return;
     }
     selectedDate = date;
+    liveConnected = false;
+    liveFeedsAvailable = 0;
     $("service-date").value = date;
     const info = calendarData.dates.find(function (item) { return item.date === date; });
     $("date-description").textContent = formatDate(date) + " · " + info.total + " circulaciones";
@@ -380,10 +383,14 @@
         (atStation ? " · " + atStation : "") + (platform ? " · Andén " + platform[1] : "");
     }
     if (live.relationship === "CANCELED") statusText = "SERVICIO CANCELADO";
+    const feedNote = liveFeedsAvailable === 1
+      ? '<small>Conexión parcial con Renfe: una de las dos fuentes de datos no ha respondido. La información disponible sigue mostrándose.</small>'
+      : "";
     node.innerHTML =
       '<div class="live-heading"><span class="live-dot ' + (liveConnected ? "" : "muted") + '"></span><strong>Información en tiempo real de Renfe</strong><span class="live-delay ' + (delay != null && delay > 0 ? "delayed" : "") + '">' + escapeHtml(delayText) + "</span></div>" +
       '<p><strong>' + escapeHtml(statusText) + '</strong><br>' + escapeHtml(vehicleText) + '</p>' +
-      (delay != null ? '<button class="text-button" id="use-live-delay" type="button">Usar retraso RT en el simulador ↗</button>' : '<small>Sin actualización RT para esta circulación en este momento.</small>');
+      (delay != null ? '<button class="text-button" id="use-live-delay" type="button">Usar retraso RT en el simulador ↗</button>' : '<small>Sin actualización RT para esta circulación en este momento.</small>') +
+      feedNote;
     if ($("use-live-delay")) $("use-live-delay").addEventListener("click", function () {
       const input = $("delay-input");
       if (input) {
@@ -474,8 +481,15 @@
     node.classList.toggle("offline", !active);
   }
   function renderLiveHeader() {
-    if (selectedDate !== madridToday()) setLiveStatus("RT SOLO PARA HOY", false);
-    else setLiveStatus(liveConnected ? "RENFE RT CONECTADO" : "SIN CONEXIÓN RT", liveConnected);
+    if (selectedDate !== madridToday()) {
+      setLiveStatus("RT SOLO PARA HOY", false);
+    } else if (liveFeedsAvailable === 2) {
+      setLiveStatus("RENFE RT CONECTADO", true);
+    } else if (liveFeedsAvailable === 1) {
+      setLiveStatus("RENFE RT PARCIAL", true);
+    } else {
+      setLiveStatus("SIN CONEXIÓN RT", false);
+    }
   }
   function parseLiveMap(payload, key) {
     const map = new Map();
@@ -494,13 +508,18 @@
     }
     refreshBusy = true;
     try {
-      const feeds = await Promise.all([fetchJson(LIVE_URLS.vehicles), fetchJson(LIVE_URLS.updates)]);
-      liveVehicles = parseLiveMap(feeds[0], "vehicle");
-      liveUpdates = parseLiveMap(feeds[1], "tripUpdate");
-      liveConnected = true;
+      // Cada feed se procesa por separado: un fallo parcial no debe apagar todo el tiempo real.
+      const results = await Promise.allSettled([
+        fetchJson(LIVE_URLS.vehicles),
+        fetchJson(LIVE_URLS.updates)
+      ]);
+      const vehiclesOk = results[0].status === "fulfilled";
+      const updatesOk = results[1].status === "fulfilled";
+      liveVehicles = vehiclesOk ? parseLiveMap(results[0].value, "vehicle") : new Map();
+      liveUpdates = updatesOk ? parseLiveMap(results[1].value, "tripUpdate") : new Map();
+      liveFeedsAvailable = (vehiclesOk ? 1 : 0) + (updatesOk ? 1 : 0);
+      liveConnected = liveFeedsAvailable > 0;
       if (activeService) renderLivePanel(activeService);
-    } catch (error) {
-      liveConnected = false;
     } finally {
       refreshBusy = false;
       renderLiveHeader();
