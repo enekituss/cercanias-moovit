@@ -496,7 +496,7 @@ main {
 .simulator-label { color: var(--muted); font-size: 9px; font-weight: 700; }
 .sim-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
   margin: 13px 0;
 }
@@ -517,6 +517,7 @@ main {
 .time-pair { display: grid; gap: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .time-pair .planned { color: var(--subtle); text-decoration: line-through; }
 .time-pair .estimated { color: var(--text); font-weight: 700; }
+.time-pair .buffer-info { color: var(--muted); font-size: 9px; white-space: normal; }
 .delay-cell { color: var(--green); font-weight: 700; white-space: nowrap; }
 .delay-cell.delayed { color: var(--red); }
 .actual-tag { color: var(--muted); font-size: 8px; font-weight: 400; }
