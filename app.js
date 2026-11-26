@@ -404,21 +404,39 @@
     $("export-button").addEventListener("click", exportData);
     $("reset-demo").addEventListener("click", resetDemo);
 
-    let initial = clone(DEMO_DATA);
+    let saved = null;
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) initial = JSON.parse(saved);
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) saved = JSON.parse(stored);
     } catch (error) {
       localStorage.removeItem(STORAGE_KEY);
     }
-    try {
-      setData(initial, false);
-      searchByNumber("26137");
-    } catch (error) {
-      setData(clone(DEMO_DATA), false);
-      searchByNumber("26137");
-      showToast("Se han recuperado los datos de demostración.");
+
+    if (saved) {
+      try {
+        setData(saved, false);
+        searchByNumber("26137");
+      } catch (error) {
+        setData(clone(DEMO_DATA), false);
+        searchByNumber("26137");
+        showToast("Se han recuperado los datos de demostración.");
+      }
+      return;
     }
+
+    fetch("./data/schedules.json")
+      .then(function (response) {
+        if (!response.ok) throw new Error("No se pudo cargar el archivo inicial.");
+        return response.json();
+      })
+      .then(function (initialData) {
+        setData(initialData, false);
+        searchByNumber("26137");
+      })
+      .catch(function () {
+        setData(clone(DEMO_DATA), false);
+        searchByNumber("26137");
+      });
   }
 
   document.addEventListener("DOMContentLoaded", init);
