@@ -191,7 +191,7 @@
       return String(service.circulation) === String(circulation).trim();
     });
   }
-  function findCandidates(service, minTurnaround) {
+  function findCandidates(service) {
     if (!dayData || !service) return [];
     const earliest = parseMinutes(service.arrival) + MIN_CANDIDATE_GAP_MINUTES;
     return dayData.services.filter(function (candidate) {
@@ -208,7 +208,7 @@
     const savedId = rotations[service.trip_id];
     if (savedId) {
       const saved = findServiceByTripId(savedId);
-      if (saved) return { service: saved, confirmed: true, candidates: findCandidates(service, MIN_CANDIDATE_GAP_MINUTES) };
+      if (saved) return { service: saved, confirmed: true, candidates: findCandidates(service) };
       delete rotations[service.trip_id];
       saveRotations();
     }
@@ -302,7 +302,7 @@
         const manual = rotations[chain[index - 1] && chain[index - 1].trip_id] === item.trip_id;
         return '<div class="chain-item ' + (index === 0 ? "current" : "") + '"><span class="chain-index">' + String(index + 1).padStart(2, "0") + '</span><div class="chain-copy"><strong>' + escapeHtml(item.circulation) + ' <span class="line-chip ' + lineClass(item.line) + '">' + escapeHtml(item.line) + "</span>" + (index === 1 ? '<span class="chain-tag ' + (manual ? "confirmed" : "estimated") + '">' + (manual ? "CONFIRMADO" : "POSIBLE") + "</span>" : "") + '</strong><small>' + escapeHtml(stationName(item.origin_id)) + " → " + escapeHtml(stationName(item.destination_id)) + '</small></div><span class="chain-time">' + escapeHtml(shortTime(item.departure)) + " – " + escapeHtml(shortTime(item.arrival)) + "</span></div>";
       }).join("") + "</div>" +
-      '<div class="rotation-footnote">La continuidad se propone por coincidencia de terminal, línea y tiempo mínimo de inversión. El GTFS no asigna la composición física a cada viaje. Confirma el enlace manualmente antes de considerarlo una rotación real; la confirmación se guarda en este navegador.</div>' +
+      '<div class="rotation-footnote">La continuidad se propone por coincidencia de terminal y línea, y se filtran candidatos con al menos 3 min entre servicios. Ese filtro no es la inversión usada en la simulación: la inversión real se calcula para cada enlace con su horario programado. El GTFS no asigna la composición física a cada viaje; confirma manualmente el enlace antes de considerarlo una rotación real.</div>' +
       '<section class="simulator"><div class="simulator-head"><div><div class="simulator-label">02 · SIMULADOR</div><h3>Propagación del retraso</h3><p>Introduce la demora de llegada. La inversión se calcula automáticamente según el horario de cada enlace. Circulación ' + escapeHtml(service.circulation) + '.</p></div></div>' +
       '<div class="sim-controls"><div class="sim-field"><label for="delay-input">RETRASO DE LLEGADA (MIN)</label><input class="sim-input" id="delay-input" type="number" min="0" max="600" step="1" value="0"></div><div class="sim-field"><label for="recovery-input">RECUPERACIÓN EN MARCHA (MIN)</label><input class="sim-input" id="recovery-input" type="number" min="0" max="180" step="1" value="0"></div></div>' +
       '<div class="sim-output" id="simulation-output"></div><p class="sim-explanation" id="simulation-explanation"></p><div class="sim-warning">Cálculo teórico: no incorpora cruces, regulación, incidencias, cambios de unidad ni decisiones operativas de Renfe.</div></section>' +
