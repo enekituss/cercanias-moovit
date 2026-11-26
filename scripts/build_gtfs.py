@@ -14,7 +14,7 @@ import sys
 import urllib.request
 import zipfile
 
-DEFAULT_URL = "https://gtfs-source-feeds.transit.land/es-nap-1130.zip"
+DEFAULT_URL = "https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_transit.zip"
 LINES = {"C1", "C2", "C3"}
 WEEKDAYS_ES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
